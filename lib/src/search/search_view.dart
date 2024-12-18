@@ -241,38 +241,50 @@ class _LoginPageState extends State<LoginPage> {
 												CircularProgressIndicator(color: Colors.white)
 											else if (_users.isNotEmpty)
 												ConstrainedBox(
-												constraints: BoxConstraints(
-													maxHeight: 300,
-												),
-												child: ListView.builder(
-													shrinkWrap: true,
-													padding: EdgeInsets.zero,
-													itemCount: _users.length,
-													itemBuilder: (context, index) {
-													final user = _users[index];
-													return Container(
-														margin: EdgeInsets.symmetric(vertical: 5),
-														decoration: BoxDecoration(
-															color: Colors.white.withOpacity(0.1),
-															borderRadius: BorderRadius.circular(10),
-														),
-														child: ListTile(
-															leading: user.imageUrl != null
-																? CircleAvatar(
-																	backgroundImage: NetworkImage(user.imageUrl!),
-																)
-																: CircleAvatar(
-																	child: Icon(Icons.person, color: Colors.white),
-																	backgroundColor: Colors.grey,
+													constraints: BoxConstraints(
+														maxHeight: 300,
+													),
+													child: ListView.builder(
+														shrinkWrap: true,
+														padding: EdgeInsets.zero,
+														itemCount: _users.length,
+														itemBuilder: (context, index) {
+															final user = _users[index];
+															return InkWell(
+																child: Container(
+																	margin: EdgeInsets.symmetric(vertical: 5),
+																	decoration: BoxDecoration(
+																		color: Colors.white.withOpacity(0.1),
+																		borderRadius: BorderRadius.circular(10),
+																	),
+																	child: ListTile(
+																		leading: user.imageUrl != null
+																			? CircleAvatar(
+																				backgroundImage: NetworkImage(user.imageUrl!),
+																			)
+																			: CircleAvatar(
+																				child: Icon(Icons.person, color: Colors.white),
+																				backgroundColor: Colors.grey,
+																			),
+																		title: Text(
+																			user.login,
+																			style: TextStyle(color: Colors.white),
+																		),
+																	),
 																),
-															title: Text(
-																user.login,
-																style: TextStyle(color: Colors.white),
-															),
-														),
-													);
-													},
-												),
+																onTap: () async {
+																	Navigator.pushNamed(
+																		context,
+																		'/profile',
+																		arguments: {
+																			'login': user.login,
+																			'token': await AuthService.getToken(),
+																		},
+																	);
+																},
+															);
+														},
+													)
 												)
 											else
 												Text(
