@@ -30,7 +30,6 @@ class UserService {
 		return _token;
 	}
 
-	// get function to get user infos from the api
 	static Future<Map<String, dynamic>> getUserInfos() async {
 		final token = _token;
 		if (token == null) {
@@ -38,7 +37,7 @@ class UserService {
 		}
 
 		final response = await http.get(
-			Uri.parse('https://api.intra.42.fr/v2/users/$_login/cursus_users'),
+			Uri.parse('https://api.intra.42.fr/v2/users/$_login'),
 			headers: {
 				'Authorization': 'Bearer $token',
 			},
@@ -52,15 +51,23 @@ class UserService {
 
 		final cursusUserJson = json.decode(response.body);
 
-		final userJson = cursusUserJson[0]['user'];
+		final userJson = cursusUserJson;
+
 		userJson['coalitionName'] = coalitionJson['name'];
 		userJson['coalitionImageUrl'] = coalitionJson['image_url'];
 		userJson['coalitionColor'] = coalitionJson['color'];
 		userJson['cover_url'] = coalitionJson['cover_url'] ?? '';
-		userJson['level'] =  cursusUserJson[0]['level'];
-		userJson['skills'] = cursusUserJson[0]['skills'].map((skill) => {
+		userJson['level'] =  cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['level'];
+		userJson['skills'] = cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['skills'].map((skill) => {
 			'name': skill['name'],
 			'level': skill['level'],
+		}).toList();
+
+		userJson['achievements'] = cursusUserJson["achievements"].map((achievement) => {
+			'name': achievement['name'],
+			'description': achievement['description'],
+			'kind': achievement['kind'],
+			'tier': achievement['tier'],
 		}).toList();
 
 		return userJson;
@@ -128,7 +135,6 @@ class UserService {
 }
 
 class UserInfos {
-	final int cursusId;
 	final String login;
 	final String email;
 	final String firstName;
@@ -145,9 +151,9 @@ class UserInfos {
 	final double level;
 	List<UserProject> projects;
 	List<UserSkills> skills;
+	List<UserAchivement> achievements;
 
 	UserInfos({
-		required this.cursusId,
 		required this.login,
 		required this.email,
 		required this.firstName,
@@ -164,11 +170,11 @@ class UserInfos {
 		this.level = 0,
 		this.projects = const [],
 		this.skills = const [],
+		this.achievements = const [],
 	});
 
 	factory UserInfos.fromJson(Map<String, dynamic> json) {
 		return UserInfos(
-			cursusId: json['cursus_id'] ?? 0,
 			login: json['login'] ?? '',
 			email: json['email'] ?? '',
 			firstName: json['first_name'] ?? '',
@@ -185,6 +191,7 @@ class UserInfos {
 			level: json['level'] ?? 0,
 			projects: [],
 			skills: json['skills'].map<UserSkills>((skill) => UserSkills.fromJson(skill)).toList(),
+			achievements: json['achievements'].map<UserAchivement>((achievement) => UserAchivement.fromJson(achievement)).toList(),
 		);
 	}
 }
@@ -234,6 +241,29 @@ class UserSkills {
 		return UserSkills(
 			name: json['name'] ?? '',
 			level: json['level'] ?? 0,
+		);
+	}
+}
+
+class UserAchivement {
+	final String name;
+	final String description;
+	final String kind;
+	final String tier;
+
+	UserAchivement({
+		required this.name,
+		required this.description,
+		required this.kind,
+		required this.tier,
+	});
+
+	factory UserAchivement.fromJson(Map<String, dynamic> json) {
+		return UserAchivement(
+			name: json['name'] ?? '',
+			description: json['description'] ?? '',
+			kind: json['kind'] ?? '',
+			tier: json['tier'] ?? '',
 		);
 	}
 }
@@ -448,7 +478,6 @@ class _ProfilePageState extends State<ProfilePage> {
 	}
 
 	Widget _buildSkillsContent() {
-		// list of skills
 		return ListView.builder(
 			padding: const EdgeInsets.all(5),
 			shrinkWrap: true,
@@ -506,25 +535,51 @@ class _ProfilePageState extends State<ProfilePage> {
 	Widget _buildAchievementsContent() {
 		return GridView.count(
 			shrinkWrap: true,
+			padding: const EdgeInsets.all(5),
 			physics: NeverScrollableScrollPhysics(),
 			crossAxisCount: 2,
 			childAspectRatio: 1.5,
-			children: List.generate(4, (index) {
-				return Card(
-					color: Colors.white.withOpacity(0.1),
-					child: Column(
-						mainAxisAlignment: MainAxisAlignment.center,
-						children: [
-							Icon(Icons.emoji_events, color: Colors.amber),
-							SizedBox(height: 8),
-							Text(
-								'Achievement ${index + 1}',
-								style: TextStyle(color: Colors.white),
-							),
-						],
-					),
-				);
-			}),
+			children: List.generate(
+				_user?.achievements.length ?? 0, (index) {
+					return Card(
+						color: Colors.white.withOpacity(0.1),
+						child: Column(
+							mainAxisAlignment: MainAxisAlignment.center,
+							children: [
+								_user!.achievements[index].kind == 'project'
+								? 
+									Icon(Icons.article, color: _user!.achievements[index].tier != 'none' ? Color(int.parse('0xFF${_user!.coalitionColor.replaceAll('#', '')}')) : Colors.white)
+								:
+								_user!.achievements[index].kind == 'social'
+								?
+									Icon(Icons.people, color: Colors.white)
+								:
+								_user!.achievements[index].kind == 'pedagogy'
+								?
+									Icon(Icons.school, color: Colors.white)
+								:
+								_user!.achievements[index].kind == 'scolarity'
+								?
+									Icon(Icons.school, color: Colors.white)
+								:
+									Icon(Icons.emoji_events, color: Colors.amber),
+								SizedBox(height: 8),
+								Text(
+									_user!.achievements[index].name,
+									style: TextStyle(color: Colors.white),
+									textAlign: TextAlign.center,
+								),
+								_user!.achievements[index].tier != 'none'
+									? Text(
+										_user!.achievements[index].tier,
+										style: TextStyle(color: Colors.white70),
+									)
+									: const SizedBox(),
+							],
+						),
+					);
+				}
+			),
 		);
 	}
 
@@ -584,7 +639,6 @@ class _ProfilePageState extends State<ProfilePage> {
 							fit: StackFit.expand,
 							children: [
 								SingleChildScrollView(
-									// padding to the top of the screen and on the sides
 									padding: const EdgeInsets.only(top: 75, left: 20, right: 20),
 
 									child: Column(
@@ -655,7 +709,6 @@ class _ProfilePageState extends State<ProfilePage> {
 												],
 											),
 											const SizedBox(height: 15),
-											// line separator
 											Container(
 												height: 5,
 												color: Colors.white.withOpacity(0.1),
