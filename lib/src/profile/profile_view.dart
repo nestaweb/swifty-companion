@@ -9,6 +9,7 @@ class UserService {
 
 	static String? _token;
 	static String _login = '';
+	static Map<String, dynamic>? _cachedUserData;
 
 	static void setToken(BuildContext context, String token) {
 		if (token == '') {
@@ -31,6 +32,9 @@ class UserService {
 	}
 
 	static Future<Map<String, dynamic>> getUserInfos() async {
+		if (_cachedUserData != null) {
+			return _cachedUserData!;
+		}
 		final token = _token;
 		if (token == null) {
 			throw Exception('No token found');
@@ -57,11 +61,11 @@ class UserService {
 		userJson['coalitionImageUrl'] = coalitionJson['image_url'];
 		userJson['coalitionColor'] = coalitionJson['color'];
 		userJson['cover_url'] = coalitionJson['cover_url'] ?? '';
-		userJson['level'] =  cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['level'];
-		userJson['skills'] = cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['skills'].map((skill) => {
+		userJson['level'] =  cursusUserJson["cursus_users"].length > 0 ? cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['level'] : 0;
+		userJson['skills'] = cursusUserJson["cursus_users"].length > 0 ? cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['skills'].map((skill) => {
 			'name': skill['name'],
 			'level': skill['level'],
-		}).toList();
+		}).toList() : [];
 
 		userJson['achievements'] = cursusUserJson["achievements"].map((achievement) => {
 			'name': achievement['name'],
@@ -70,31 +74,43 @@ class UserService {
 			'tier': achievement['tier'],
 		}).toList();
 
+		_cachedUserData = userJson;
 		return userJson;
 	}
 
-	static Future<Map<String, dynamic>> getUserCoalition() async {
+	static Future<Map<String, dynamic>> getUserCoalition({int retries = 3}) async {
 		final token = _token;
 		if (token == null) {
 			throw Exception('No token found');
 		}
 
-		final coalitionResponse = await http.get(
-			Uri.parse('https://api.intra.42.fr/v2/users/$_login/coalitions'),
-			headers: {
-				'Authorization': 'Bearer $token',
-			},
-		);
+		for (int attempt = 0; attempt < retries; attempt++) {
+			try {
+				final coalitionResponse = await http.get(
+					Uri.parse('https://api.intra.42.fr/v2/users/$_login/coalitions'),
+					headers: {
+						'Authorization': 'Bearer $token',
+					},
+				);
 
-		if (coalitionResponse.statusCode != 200) {
-			throw Exception('Failed to get user coalition infos');
+				if (coalitionResponse.statusCode == 200) {
+					final coalitionJson = json.decode(coalitionResponse.body);
+					final coalition = coalitionJson[coalitionJson.length - 1];
+					return coalition;
+				} else if (coalitionResponse.statusCode == 429) {
+					await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+				} else {
+					throw Exception('Failed to get user coalition infos');
+				}
+			} catch (e) {
+				if (attempt == retries - 1) {
+					throw e;
+				}
+				await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+			}
 		}
 
-		final coalitionJson = json.decode(coalitionResponse.body);
-
-		final coalition = coalitionJson[coalitionJson.length - 1];
-
-		return coalition;
+		throw Exception('Failed to get user coalition infos after $retries attempts');
 	}
 
 	static Future<List<dynamic>> getUserProjects() async {
@@ -102,8 +118,6 @@ class UserService {
 		if (token == null) {
 			throw Exception('No token found');
 		}
-
-		print('Getting user projects for $_login');
 
 		final response = await http.get(
 			Uri.parse('https://api.intra.42.fr/v2/users/$_login/projects_users?page[size]=100'),
@@ -131,6 +145,10 @@ class UserService {
 		projects.sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])));
 
 		return projects;
+	}
+
+	static void clearCache() {
+		_cachedUserData = null;
 	}
 }
 
@@ -325,9 +343,34 @@ class _ProfilePageState extends State<ProfilePage> {
 
 		UserService.setToken(context, token);
 		UserService.setLogin(context, login);
+		if (UserService._cachedUserData != null && UserService._cachedUserData!['login'] == login) {
+			print('Using cached user data');
+			if (mounted) {
+				setState(() {
+					_user = UserInfos.fromJson(UserService._cachedUserData!);
+					_isLoading = false;
+				});
+			}
+			return;
+		}
+		else {
+			UserService.clearCache();
+		}
 
 		try {
-			final userData = await UserService.getUserInfos();
+			final results = await Future.wait([
+        UserService.getUserInfos(),
+        UserService.getUserCoalition()
+			]);
+
+			final userData = results[0] as Map<String, dynamic>;
+			final coalitionData = results[1] as Map<String, dynamic>;
+
+			userData['coalitionName'] = coalitionData['name'];
+			userData['coalitionImageUrl'] = coalitionData['image_url'];
+			userData['coalitionColor'] = coalitionData['color'];
+			userData['cover_url'] = coalitionData['cover_url'] ?? '';
+
 			if (mounted) {
 				setState(() {
 					_user = UserInfos.fromJson(userData);
@@ -339,8 +382,14 @@ class _ProfilePageState extends State<ProfilePage> {
 				setState(() {
 					_isLoading = false;
 				});
+				String errorMessage;
+				if (e is http.ClientException) {
+					errorMessage = 'Network error. Please check your connection.';
+				} else {
+					errorMessage = 'Error loading user data: ${e.toString()}';
+				}
 				ScaffoldMessenger.of(context).showSnackBar(
-					SnackBar(content: Text('Error loading user data: ${e.toString()}')),
+					SnackBar(content: Text(errorMessage)),
 				);
 			}
 		}
@@ -616,6 +665,16 @@ class _ProfilePageState extends State<ProfilePage> {
 		}
 	}
 
+	Widget _buildProfileImage() {
+		return _user!.imageUrl != ''
+			? CircleAvatar(
+				radius: 75,
+				backgroundImage: NetworkImage(_user!.imageUrl),
+				onBackgroundImageError: (_, __) => const FlutterLogo(size: 100),
+			)
+			: const FlutterLogo(size: 100);
+	}
+
 	@override
 	Widget build(BuildContext context) {
 
@@ -643,12 +702,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
 									child: Column(
 										children: [
-											_user!.imageUrl != ''
-												? CircleAvatar(
-													radius: 75,
-													backgroundImage: NetworkImage(_user!.imageUrl),
-												)
-												: const FlutterLogo(size: 100),
+											_buildProfileImage(),
 											const SizedBox(height: 20),
 											Row(
 												mainAxisAlignment: MainAxisAlignment.center,
@@ -721,9 +775,7 @@ class _ProfilePageState extends State<ProfilePage> {
 							]
 						)
 						:
-						const Center(
-							child: CircularProgressIndicator(),
-						),
+						const Center(							child: CircularProgressIndicator(),						),
 					]
 				)
 			);
