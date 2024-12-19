@@ -16,7 +16,6 @@ class UserService {
 			Navigator.pushNamed(context, '/search'); 
 		}
 		_token = token;
-		print('Token set: $_token');
 	}
 
 	static void setLogin(BuildContext context, String login) {
@@ -24,7 +23,6 @@ class UserService {
 			Navigator.pushNamed(context, '/search'); 
 		}
 		_login = login;
-		print('Login set: $_login');
 	}
 
 	static String? getToken() {
@@ -41,7 +39,6 @@ class UserService {
 		}
 
 		try {
-			// Fetch user and coalition data in parallel
 			final responses = await Future.wait([
 				http.get(
 					Uri.parse('https://api.intra.42.fr/v2/users/$_login'),
@@ -60,8 +57,7 @@ class UserService {
 			}
 
 			final userJson = json.decode(userResponse.body);
-
-			// Only parse necessary parts of the JSON response
+			
 			userJson['coalitionName'] = coalitionJson['name'];
 			userJson['coalitionImageUrl'] = coalitionJson['image_url'];
 			userJson['coalitionColor'] = coalitionJson['color'];
