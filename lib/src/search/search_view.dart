@@ -207,18 +207,25 @@ class _LoginPageState extends State<LoginPage> {
 												children: [
 													Expanded(
 														child: TextField(
-														controller: _searchController,
-														decoration: InputDecoration(
-															hintText: 'Enter login name',
-															hintStyle: TextStyle(color: Colors.white70),
-															filled: true,
-															fillColor: Colors.white.withOpacity(0.2),
-															border: OutlineInputBorder(
-																borderRadius: BorderRadius.circular(10),
-																borderSide: BorderSide.none,
+															controller: _searchController,
+															onChanged: (value) => {
+																if (value.trim().isEmpty) {
+																	setState(() {
+																		_users = [];
+																	})
+																}
+															},
+															decoration: InputDecoration(
+																hintText: 'Enter login name',
+																hintStyle: TextStyle(color: Colors.white70),
+																filled: true,
+																fillColor: Colors.white.withOpacity(0.2),
+																border: OutlineInputBorder(
+																	borderRadius: BorderRadius.circular(10),
+																	borderSide: BorderSide.none,
+																),
 															),
-														),
-														style: TextStyle(color: Colors.white),
+															style: TextStyle(color: Colors.white),
 														),
 													),
 													SizedBox(width: 10),
@@ -237,9 +244,7 @@ class _LoginPageState extends State<LoginPage> {
 												],
 											),
 											SizedBox(height: 20),
-											if (_isLoading)
-												CircularProgressIndicator(color: Colors.white)
-											else if (_users.isNotEmpty)
+											if (_users.isNotEmpty)
 												ConstrainedBox(
 													constraints: BoxConstraints(
 														maxHeight: 300,
