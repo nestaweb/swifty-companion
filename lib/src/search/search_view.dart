@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async';
 
 class AuthService {
 	static const _tokenKey = 'accessToken';
@@ -20,10 +21,8 @@ class AuthService {
 
 		final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 		if (currentTime < expiry) {
-			print('Token is still valid: $token');
 			return token;
 		}
-		print('Token has expired. Current: $currentTime, Expiry: $expiry');
     	return null;
 	}
 
@@ -39,7 +38,6 @@ class AuthService {
 		final clientId = dotenv.env['CLIENT_ID'];
 		final clientSecret = dotenv.env['CLIENT_SECRET'];
 
-		print('Fetching new token...');
 		final tokenResponse = await http.post(
 			Uri.parse('https://api.intra.42.fr/oauth/token'),
 			body: {
@@ -98,13 +96,13 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
 	final TextEditingController _searchController = TextEditingController();
+	Timer? _debounce; // Add a debounce timer
 	
 	List<UserModel> _users = [];
 	
 	bool _isLoading = false;
 	
 	Future<void> searchUsers() async {
-		print('Searching for users...');
 		if (_searchController.text.trim().isEmpty) {
 			ScaffoldMessenger.of(context).showSnackBar(
 				SnackBar(content: Text('Please enter a login name')),
@@ -119,7 +117,6 @@ class _LoginPageState extends State<LoginPage> {
 
 		try {
 			final accessToken = await AuthService.getToken();
-			print('Access token: $accessToken');
 
 			final searchResponse = await http.get(
 				Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=10'),
@@ -127,7 +124,6 @@ class _LoginPageState extends State<LoginPage> {
 					'Authorization': 'Bearer $accessToken',
 				},
 			);
-			print('Search response: ${searchResponse.statusCode}');
 			if (searchResponse.statusCode == 200) {
 				final List<dynamic> usersJson = json.decode(searchResponse.body);
 
@@ -137,7 +133,6 @@ class _LoginPageState extends State<LoginPage> {
 				});
 			} else if (searchResponse.statusCode == 401) {
 				final newToken = await AuthService.fetchNewToken();
-				print('New access token: $newToken');
 				
 				final retryResponse = await http.get(
 					Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=10'),
@@ -165,6 +160,25 @@ class _LoginPageState extends State<LoginPage> {
 			ScaffoldMessenger.of(context).showSnackBar(
 				SnackBar(content: Text('Error: ${e.toString()}')),
 			);
+		}
+	}
+
+	@override
+	void dispose() {
+		_searchController.dispose();
+		_debounce?.cancel(); // Cancel the debounce timer
+		super.dispose();
+	}
+
+	void _onSearchChanged() {
+		if (_debounce?.isActive ?? false) _debounce!.cancel();
+		_debounce = Timer(const Duration(milliseconds: 500), () {
+			searchUsers();
+		});
+		if (_searchController.text.isEmpty) {
+			setState(() {
+				_users = [];
+			});
 		}
 	}
 
@@ -208,13 +222,7 @@ class _LoginPageState extends State<LoginPage> {
 													Expanded(
 														child: TextField(
 															controller: _searchController,
-															onChanged: (value) => {
-																if (value.trim().isEmpty) {
-																	setState(() {
-																		_users = [];
-																	})
-																}
-															},
+															onChanged: (value) => _onSearchChanged(), // Use debounce
 															decoration: InputDecoration(
 																hintText: 'Enter login name',
 																hintStyle: TextStyle(color: Colors.white70),

@@ -40,42 +40,49 @@ class UserService {
 			throw Exception('No token found');
 		}
 
-		final response = await http.get(
-			Uri.parse('https://api.intra.42.fr/v2/users/$_login'),
-			headers: {
-				'Authorization': 'Bearer $token',
-			},
-		);
+		try {
+			// Fetch user and coalition data in parallel
+			final responses = await Future.wait([
+				http.get(
+					Uri.parse('https://api.intra.42.fr/v2/users/$_login'),
+					headers: {
+						'Authorization': 'Bearer $token',
+					},
+				),
+				getUserCoalition()
+			]);
 
-		if (response.statusCode != 200) {
-			throw Exception('Failed to get user infos');
+			final userResponse = responses[0] as http.Response;
+			final coalitionJson = responses[1] as Map<String, dynamic>;
+
+			if (userResponse.statusCode != 200) {
+				throw Exception('Failed to get user infos');
+			}
+
+			final userJson = json.decode(userResponse.body);
+
+			// Only parse necessary parts of the JSON response
+			userJson['coalitionName'] = coalitionJson['name'];
+			userJson['coalitionImageUrl'] = coalitionJson['image_url'];
+			userJson['coalitionColor'] = coalitionJson['color'];
+			userJson['cover_url'] = coalitionJson['cover_url'] ?? '';
+			userJson['level'] = userJson["cursus_users"].isNotEmpty ? userJson["cursus_users"].last['level'] : 0;
+			userJson['skills'] = userJson["cursus_users"].isNotEmpty ? userJson["cursus_users"].last['skills'].map((skill) => {
+				'name': skill['name'],
+				'level': skill['level'],
+			}).toList() : [];
+			userJson['achievements'] = userJson["achievements"].map((achievement) => {
+				'name': achievement['name'],
+				'description': achievement['description'],
+				'kind': achievement['kind'],
+				'tier': achievement['tier'],
+			}).toList();
+
+			_cachedUserData = userJson;
+			return userJson;
+		} catch (e) {
+			throw Exception('Failed to get user infos: $e');
 		}
-
-		final coalitionJson = await getUserCoalition();
-
-		final cursusUserJson = json.decode(response.body);
-
-		final userJson = cursusUserJson;
-
-		userJson['coalitionName'] = coalitionJson['name'];
-		userJson['coalitionImageUrl'] = coalitionJson['image_url'];
-		userJson['coalitionColor'] = coalitionJson['color'];
-		userJson['cover_url'] = coalitionJson['cover_url'] ?? '';
-		userJson['level'] =  cursusUserJson["cursus_users"].length > 0 ? cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['level'] : 0;
-		userJson['skills'] = cursusUserJson["cursus_users"].length > 0 ? cursusUserJson["cursus_users"][cursusUserJson["cursus_users"].length - 1]['skills'].map((skill) => {
-			'name': skill['name'],
-			'level': skill['level'],
-		}).toList() : [];
-
-		userJson['achievements'] = cursusUserJson["achievements"].map((achievement) => {
-			'name': achievement['name'],
-			'description': achievement['description'],
-			'kind': achievement['kind'],
-			'tier': achievement['tier'],
-		}).toList();
-
-		_cachedUserData = userJson;
-		return userJson;
 	}
 
 	static Future<Map<String, dynamic>> getUserCoalition({int retries = 3}) async {
@@ -143,6 +150,7 @@ class UserService {
 		}).toList();
 
 		projects.sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])));
+
 
 		return projects;
 	}
@@ -352,25 +360,12 @@ class _ProfilePageState extends State<ProfilePage> {
 				});
 			}
 			return;
-		}
-		else {
+		} else {
 			UserService.clearCache();
 		}
 
 		try {
-			final results = await Future.wait([
-        UserService.getUserInfos(),
-        UserService.getUserCoalition()
-			]);
-
-			final userData = results[0] as Map<String, dynamic>;
-			final coalitionData = results[1] as Map<String, dynamic>;
-
-			userData['coalitionName'] = coalitionData['name'];
-			userData['coalitionImageUrl'] = coalitionData['image_url'];
-			userData['coalitionColor'] = coalitionData['color'];
-			userData['cover_url'] = coalitionData['cover_url'] ?? '';
-
+			final userData = await UserService.getUserInfos();
 			if (mounted) {
 				setState(() {
 					_user = UserInfos.fromJson(userData);
