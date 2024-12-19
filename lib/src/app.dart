@@ -2,24 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'settings/settings_controller.dart';
-
 import 'search/search_view.dart';
 import 'profile/profile_view.dart';
 
 class MyApp extends StatelessWidget {
 	const MyApp({
 		super.key,
-		required this.settingsController,
 	});
 
-	final SettingsController settingsController;
 
 	@override
 	Widget build(BuildContext context) {
 
 		return ListenableBuilder(
-			listenable: settingsController,
+			listenable: ValueNotifier<int>(0),
 			builder: (BuildContext context, Widget? child) {
 				return MaterialApp(
 					restorationScopeId: 'app',
@@ -38,8 +34,6 @@ class MyApp extends StatelessWidget {
 						AppLocalizations.of(context)!.appTitle,
 
 					theme: ThemeData.dark(),
-					darkTheme: ThemeData.dark(),
-					themeMode: settingsController.themeMode,
 					
 					onGenerateRoute: (RouteSettings routeSettings) {
 						return MaterialPageRoute<void>(
