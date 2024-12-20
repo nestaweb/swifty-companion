@@ -722,7 +722,7 @@ class _ProfilePageState extends State<ProfilePage> {
 													Column(
 														children:[
 															Container(
-                                width: MediaQuery.of(context).size.width * 0.89,
+                                width: (MediaQuery.of(context).size.width - 40) * 0.90,
 																height: 10,
 																decoration: BoxDecoration(
 																	color: Colors.grey.withOpacity(0.3),
@@ -731,7 +731,7 @@ class _ProfilePageState extends State<ProfilePage> {
 																child: Align(
 																	alignment: Alignment.centerLeft,
 																	child: Container(
-																		width: ((_user!.level - _user!.level.floor()) * 100).round() * (MediaQuery.of(context).size.width * 0.89/100),
+																		width: ((_user!.level - _user!.level.floor()) * 100).round() * ((MediaQuery.of(context).size.width - 40) * 0.90/100),
 																		decoration: BoxDecoration(
 																			color: _user!.coalitionColor.isNotEmpty ? Color(int.parse('0xFF${_user!.coalitionColor.replaceAll('#', '')}')) : Colors.blueAccent,
 																			borderRadius: BorderRadius.circular(5),
