@@ -348,7 +348,6 @@ class _ProfilePageState extends State<ProfilePage> {
 		UserService.setToken(context, token);
 		UserService.setLogin(context, login);
 		if (UserService._cachedUserData != null && UserService._cachedUserData!['login'] == login) {
-			print('Using cached user data');
 			if (mounted) {
 				setState(() {
 					_user = UserInfos.fromJson(UserService._cachedUserData!);
