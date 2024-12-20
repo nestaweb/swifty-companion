@@ -21,4 +21,4 @@ I decided to use Flutter for this project because it is a powerful framework tha
 - Add more information to the user's profile, such as the user's wallet and correction points
 
 ## Demo 
-Demo : https://youtube.com/shorts/52hnNweMGpg
+Demo : https://youtube.com/shorts/eRLnoKbjn9M
