@@ -111,7 +111,6 @@ class _LoginPageState extends State<LoginPage> {
 		}
 
 		setState(() {
-			_isLoading = true;
 			_users = [];
 		});
 
@@ -119,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
 			final accessToken = await AuthService.getToken();
 
 			final searchResponse = await http.get(
-				Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=10'),
+				Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=50'),
 				headers: {
 					'Authorization': 'Bearer $accessToken',
 				},
@@ -135,7 +134,7 @@ class _LoginPageState extends State<LoginPage> {
 				final newToken = await AuthService.fetchNewToken();
 				
 				final retryResponse = await http.get(
-					Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=10'),
+					Uri.parse('https://api.intra.42.fr/v2/users?search[login]=${_searchController.text}%&page[size]=50'),
 					headers: {
 						'Authorization': 'Bearer $newToken',
 					},
@@ -171,6 +170,16 @@ class _LoginPageState extends State<LoginPage> {
 	}
 
 	void _onSearchChanged() {
+    setState(() {
+      _isLoading = true;
+    });
+    final query = _searchController.text;
+    if (query.length < 2) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 		if (_debounce?.isActive ?? false) _debounce!.cancel();
 		_debounce = Timer(const Duration(milliseconds: 500), () {
 			searchUsers();
@@ -199,7 +208,7 @@ class _LoginPageState extends State<LoginPage> {
 							child: BackdropFilter(
 								filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
 								child: Container(
-									width: 350,
+									width: MediaQuery.of(context).size.width * 0.9,
 									padding: EdgeInsets.all(20),
 									decoration: BoxDecoration(
 										color: Colors.black.withOpacity(0.4),
@@ -220,42 +229,41 @@ class _LoginPageState extends State<LoginPage> {
 											Row(
 												children: [
 													Expanded(
-														child: TextField(
-															controller: _searchController,
-															onChanged: (value) => _onSearchChanged(), // Use debounce
-															decoration: InputDecoration(
-																hintText: 'Enter login name',
-																hintStyle: TextStyle(color: Colors.white70),
-																filled: true,
-																fillColor: Colors.white.withOpacity(0.2),
-																border: OutlineInputBorder(
-																	borderRadius: BorderRadius.circular(10),
-																	borderSide: BorderSide.none,
-																),
-															),
-															style: TextStyle(color: Colors.white),
-														),
-													),
-													SizedBox(width: 10),
-													Container(
-														decoration: BoxDecoration(
-															color: Colors.white.withOpacity(0.2),
-															borderRadius: BorderRadius.circular(10),
-														),
-														child: IconButton(
-															icon: _isLoading 
-																? CircularProgressIndicator(color: Colors.white)
-																: Icon(Icons.search, color: Colors.white),
-															onPressed: _isLoading ? null : searchUsers,
-														),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) => _onSearchChanged(), // Use debounce
+                              decoration: InputDecoration(
+                                hintText: 'Enter login name',
+                                hintStyle: TextStyle(color: Colors.white70),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.2),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              style: TextStyle(color: Colors.white),
+                            )
 													),
 												],
 											),
 											SizedBox(height: 20),
-											if (_users.isNotEmpty)
+                      if (_isLoading)
+                        CircularProgressIndicator(color: Colors.white)
+                      else if (_searchController.text.isEmpty)
+                        Text(
+                          'Please enter a login name',
+                          style: TextStyle(color: Colors.white),
+                        )
+                      else if (_searchController.text.length < 2)
+                        Text(
+                          'Please enter at least 2 characters',
+                          style: TextStyle(color: Colors.white),
+                        )
+											else if (_users.isNotEmpty)
 												ConstrainedBox(
 													constraints: BoxConstraints(
-														maxHeight: 300,
+														maxHeight: MediaQuery.of(context).size.height * 0.5,
 													),
 													child: ListView.builder(
 														shrinkWrap: true,
@@ -263,6 +271,9 @@ class _LoginPageState extends State<LoginPage> {
 														itemCount: _users.length,
 														itemBuilder: (context, index) {
 															final user = _users[index];
+                              if (user.imageUrl == null) {
+                                return Container();
+                              }
 															return InkWell(
 																child: Container(
 																	margin: EdgeInsets.symmetric(vertical: 5),

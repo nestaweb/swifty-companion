@@ -670,6 +670,15 @@ class _ProfilePageState extends State<ProfilePage> {
 	Widget build(BuildContext context) {
 
 		return Scaffold(
+      appBar: AppBar(
+        title: Text(_isLoading ? 'Loading' : '${_user?.firstName} ${_user?.lastName}'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
 			body: Stack(
 				fit: StackFit.expand,
 				children: [
@@ -689,7 +698,7 @@ class _ProfilePageState extends State<ProfilePage> {
 							fit: StackFit.expand,
 							children: [
 								SingleChildScrollView(
-									padding: const EdgeInsets.only(top: 75, left: 20, right: 20),
+									padding: const EdgeInsets.only(top: 50, left: 20, right: 20),
 
 									child: Column(
 										children: [
@@ -709,11 +718,12 @@ class _ProfilePageState extends State<ProfilePage> {
 											),
 											const SizedBox(height: 20),
 											Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
 												children: [
 													Column(
 														children:[
 															Container(
-																width: 350,
+                                width: MediaQuery.of(context).size.width * 0.89,
 																height: 10,
 																decoration: BoxDecoration(
 																	color: Colors.grey.withOpacity(0.3),
@@ -722,7 +732,7 @@ class _ProfilePageState extends State<ProfilePage> {
 																child: Align(
 																	alignment: Alignment.centerLeft,
 																	child: Container(
-																		width: ((_user!.level - _user!.level.floor()) * 100).round() * 3.5,
+																		width: ((_user!.level - _user!.level.floor()) * 100).round() * (MediaQuery.of(context).size.width * 0.89/100),
 																		decoration: BoxDecoration(
 																			color: _user!.coalitionColor.isNotEmpty ? Color(int.parse('0xFF${_user!.coalitionColor.replaceAll('#', '')}')) : Colors.blueAccent,
 																			borderRadius: BorderRadius.circular(5),
